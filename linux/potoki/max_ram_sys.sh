@@ -1,0 +1,1 @@
+ps aux | sort -rnk 4 | head -n 10

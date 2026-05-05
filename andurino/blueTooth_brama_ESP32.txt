@@ -1,0 +1,91 @@
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEScan.h>
+#include <BLEAdvertisedDevice.h>
+
+// ==========================================
+// KONFIGURACJA SYSTEMU
+// ==========================================
+const int RELAY_PIN = 23;                          // Pin ESP32 podłączony do przekaźnika
+const String TARGET_DEVICE_NAME = "Moj_Smartfon";  // Dokładna nazwa szukanego urządzenia Bluetooth
+const int SCAN_TIME = 5;                           // Czas pojedynczego skanowania w sekundach
+const unsigned long COOLDOWN_TIME = 60000;         // 60 sekund przerwy przed kolejnym otwarciem bramy
+
+BLEScan* pBLEScan;
+bool deviceFound = false;
+unsigned long lastOpenTime = 0;
+
+// ==========================================
+// CALLBACK - FUNKCJA WYWOŁYWANA PO ZNALEZIENIU URZĄDZENIA
+// ==========================================
+class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
+    void onResult(BLEAdvertisedDevice advertisedDevice) {
+        // Sprawdzamy, czy wykryte urządzenie udostępnia swoją nazwę
+        if (advertisedDevice.haveName()) {
+            String deviceName = advertisedDevice.getName().c_str();
+            
+            // Opcjonalnie: Wyświetlanie wszystkiego, co znajdzie skaner (pomaga w debugowaniu)
+            // Serial.print("Znaleziono: ");
+            // Serial.println(deviceName);
+
+            // Jeśli nazwa się zgadza - podnosimy flagę i zatrzymujemy skanowanie
+            if (deviceName == TARGET_DEVICE_NAME) {
+                Serial.println("Cel namierzony!");
+                deviceFound = true;
+                pBLEScan->stop(); 
+            }
+        }
+    }
+};
+
+void setup() {
+    Serial.begin(115200); // Pamiętaj o ustawieniu tej prędkości w Monitorze Portu Szeregowego
+    
+    // Konfiguracja pinu przekaźnika
+    pinMode(RELAY_PIN, OUTPUT);
+    digitalWrite(RELAY_PIN, HIGH); // Moduły przekaźników zazwyczaj są wyłączone w stanie HIGH
+
+    Serial.println("Inicjalizacja skanera Bluetooth BLE...");
+    BLEDevice::init("");
+    pBLEScan = BLEDevice::getScan(); 
+    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+    pBLEScan->setActiveScan(true); // Aktywne skanowanie wymusza pobranie nazwy urządzenia
+    pBLEScan->setInterval(100);
+    pBLEScan->setWindow(99);  
+}
+
+// ==========================================
+// FUNKCJA OTWIERAJĄCA BRAMĘ
+// ==========================================
+void triggerGate() {
+    Serial.println("OTWIERANIE BRAMY! Zamykam obwód...");
+    digitalWrite(RELAY_PIN, LOW);  // Zwarcie pinu sterującego (sygnał dla centrali)
+    delay(1500);                   // Trzymanie zwarcia przez 1.5 sekundy
+    digitalWrite(RELAY_PIN, HIGH); // Rozwarcie
+    Serial.println("Brama otworzona. Uruchamiam czas oczekiwania (cooldown)...");
+}
+
+void loop() {
+    // Sprawdzamy, czy od ostatniego otwarcia minęło wystarczająco dużo czasu
+    if (millis() - lastOpenTime > COOLDOWN_TIME || lastOpenTime == 0) {
+        
+        Serial.println("Skanowanie w toku...");
+        deviceFound = false;
+        
+        // Rozpoczęcie skanowania na określoną liczbę sekund
+        BLEScanResults foundDevices = pBLEScan->start(SCAN_TIME, false);
+        
+        if (deviceFound) {
+            triggerGate();
+            lastOpenTime = millis(); // Zapisanie czasu otwarcia
+        } else {
+            Serial.println("Brak zdefiniowanego urządzenia w pobliżu.");
+        }
+        
+        pBLEScan->clearResults(); // Wyczyszczenie pamięci po zakończonym skanie
+        
+    } else {
+        // Zabezpieczenie przed ciągłym otwieraniem bramy, gdy stoisz pod domem
+        delay(1000); 
+    }
+}

@@ -1,0 +1,89 @@
+#include <math.h>
+
+// ==========================================
+// KONFIGURACJA SYSTEMU
+// ==========================================
+// Wpisz tutaj współrzędne swojej bramy (szerokość i długość geograficzna)
+const float GATE_LAT = 52.2296756; 
+const float GATE_LON = 21.0122287; 
+
+// Promień (w metrach), w którym brama ma się otworzyć
+const float OPEN_RADIUS = 50.0;    
+
+// Konfiguracja pinów
+const int RELAY_PIN = 8;           // Pin sterujący przekaźnikiem bramy
+const int OPEN_TIME = 2000;        // Czas zwarcia styku (2 sekundy - symulacja przycisku pilota)
+
+bool isUserInZone = false;
+
+void setup() {
+  Serial.begin(9600); // Uruchomienie komunikacji (np. z modułem Bluetooth na pinach RX/TX)
+  
+  pinMode(RELAY_PIN, OUTPUT);
+  // Większość gotowych modułów przekaźników dla Arduino jest załączana stanem LOW
+  digitalWrite(RELAY_PIN, HIGH); 
+  
+  Serial.println("System sterowania bramą gotowy.");
+}
+
+// ==========================================
+// FUNKCJA OBLICZAJĄCA ODLEGŁOŚĆ (Haversine)
+// ==========================================
+float calculateDistance(float lat1, float lon1, float lat2, float lon2) {
+  const float R = 6371000.0; // Promień Ziemi w metrach
+  
+  // Konwersja stopni na radiany
+  float dLat = (lat2 - lat1) * PI / 180.0;
+  float dLon = (lon2 - lon1) * PI / 180.0;
+  lat1 = lat1 * PI / 180.0;
+  lat2 = lat2 * PI / 180.0;
+
+  float a = sin(dLat/2) * sin(dLat/2) +
+            sin(dLon/2) * sin(dLon/2) * cos(lat1) * cos(lat2);
+  float c = 2 * atan2(sqrt(a), sqrt(1-a));
+
+  return R * c; // Zwraca odległość w metrach
+}
+
+// ==========================================
+// FUNKCJA OTWIERAJĄCA BRAMĘ
+// ==========================================
+void triggerGate() {
+  Serial.println("OTWIERANIE BRAMY! Zamykam obwód...");
+  digitalWrite(RELAY_PIN, LOW);  // Zwarcie przekaźnika (sygnał do sterownika bramy)
+  delay(OPEN_TIME);
+  digitalWrite(RELAY_PIN, HIGH); // Rozwarcie przekaźnika
+}
+
+void loop() {
+  // Oczekujemy na dane z telefonu (np. przez Bluetooth HC-05 podpięty do pinu RX)
+  // Oczekiwany format wysyłany z telefonu to: "SZEROKOŚĆ,DŁUGOŚĆ" (np. "52.2297000,21.0122000")
+  
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    int commaIndex = input.indexOf(',');
+
+    if (commaIndex > 0) {
+      // Parsowanie odebranych współrzędnych
+      float userLat = input.substring(0, commaIndex).toFloat();
+      float userLon = input.substring(commaIndex + 1).toFloat();
+
+      // Obliczenie odległości
+      float distance = calculateDistance(GATE_LAT, GATE_LON, userLat, userLon);
+      
+      Serial.print("Twoja odległość od bramy: ");
+      Serial.print(distance);
+      Serial.println(" m.");
+
+      // Logika decyzyjna
+      if (distance <= OPEN_RADIUS && !isUserInZone) {
+        triggerGate();
+        isUserInZone = true; // Flaga zapobiegająca ciągłemu otwieraniu/zamykaniu, gdy stoisz pod bramą
+      } 
+      else if (distance > OPEN_RADIUS && isUserInZone) {
+        Serial.println("Wyjechałeś ze strefy. Resetuję system.");
+        isUserInZone = false; // Reset flagi, gdy odjedziesz od domu
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+import os
+import glob
+import time
+from gpiozero import Buzzer
+
+# ==========================================
+# KONFIGURACJA SYSTEMU
+# ==========================================
+MAX_TEMP = 85.0       # Krytyczna temperatura w stopniach Celsjusza
+BUZZER_PIN = 17       # Pin GPIO, pod który podpięty jest buzzer
+INTERWAL = 5          # Co ile sekund sprawdzać temperaturę
+
+# Inicjalizacja buzzera za pomocą nowoczesnej biblioteki gpiozero
+alarm = Buzzer(BUZZER_PIN)
+
+# Wczytanie sterowników magistrali 1-Wire (dla DS18B20)
+os.system('modprobe w1-gpio')
+os.system('modprobe w1-therm')
+
+# Ścieżka do plików systemowych czujnika
+base_dir = '/sys/bus/w1/devices/'
+try:
+    device_folder = glob.glob(base_dir + '28*')[0]
+    device_file = device_folder + '/w1_slave'
+except IndexError:
+    print("BŁĄD: Nie wykryto czujnika DS18B20!")
+    print("Sprawdź połączenia i czy aktywowałeś 1-Wire w raspi-config.")
+    exit(1)
+
+# ==========================================
+# FUNKCJE POMOCNICZE ODCZYTU
+# ==========================================
+def read_temp_raw():
+    """Odczytuje surowe dane z pliku systemowego czujnika."""
+    with open(device_file, 'r') as f:
+        lines = f.readlines()
+    return lines
+
+def czytaj_temperature():
+    """Przetwarza surowe dane na stopnie Celsjusza."""
+    lines = read_temp_raw()
+    
+    # Czekamy, aż czujnik zgłosi poprawny odczyt (YES na końcu pierwszej linii)
+    while lines[0].strip()[-3:] != 'YES':
+        time.sleep(0.2)
+        lines = read_temp_raw()
+        
+    # Szukamy wartości "t=" w drugiej linii
+    equals_pos = lines[1].find('t=')
+    if equals_pos != -1:
+        temp_string = lines[1][equals_pos+2:]
+        # Dzielimy przez 1000, bo system podaje np. 85000 dla 85.0°C
+        temp_c = float(temp_string) / 1000.0 
+        return temp_c
+
+# ==========================================
+# GŁÓWNA PĘTLA PROGRAMU
+# ==========================================
+print("Rozpoczęto monitorowanie temperatury pieca...")
+print(f"Próg alarmu ustawiony na: {MAX_TEMP}°C")
+print("Naciśnij Ctrl+C, aby zakończyć.\n")
+
+try:
+    while True:
+        aktualna_temperatura = czytaj_temperature()
+        
+        # Wyświetlanie aktualnego stanu
+        print(f"Aktualna temperatura: {aktualna_temperatura:.1f}°C")
+
+        # Logika alarmu
+        if aktualna_temperatura >= MAX_TEMP:
+            print(">>> UWAGA! PRZEKROCZONO BEZPIECZNĄ TEMPERATURĘ! <<<")
+            alarm.on() # Włączenie syreny
+            
+            # W tym miejscu w przyszłości możesz dodać np. wysyłanie e-maila:
+            # wyslij_powiadomienie("Piec się gotuje!")
+        else:
+            alarm.off() # Wyłączenie syreny (jeśli temperatura spadła)
+
+        time.sleep(INTERWAL)
+
+# Zgrabne zakończenie programu po wciśnięciu Ctrl+C
+except KeyboardInterrupt:
+    print("\nZakończono działanie skryptu.")
+    alarm.off() # Upewniamy się, że buzzer nie wyje po wyłączeniu programu
