@@ -1,0 +1,138 @@
+!DOCTYPE html
+html lang=pl
+head
+    meta charset=UTF-8
+    meta name=viewport content=width=device-width, initial-scale=1.0
+    titleMój Home Labtitle
+    style
+        root {
+            --bg-color #121212;
+            --card-bg #1e1e1e;
+            --text-main #ffffff;
+            --text-muted #a0a0a0;
+            --accent #00d2ff;
+            --accent-hover #3a7bd5;
+        }
+
+        body {
+            font-family 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color var(--bg-color);
+            color var(--text-main);
+            margin 0;
+            padding 40px 20px;
+            display flex;
+            flex-direction column;
+            align-items center;
+        }
+
+        header {
+            text-align center;
+            margin-bottom 50px;
+        }
+
+        h1 {
+            font-size 2.5rem;
+            margin 0;
+            font-weight 600;
+        }
+
+        p.subtitle {
+            color var(--text-muted);
+            margin-top 10px;
+            font-size 1.1rem;
+        }
+
+        .grid-container {
+            display grid;
+            grid-template-columns repeat(auto-fit, minmax(280px, 1fr));
+            gap 20px;
+            width 100%;
+            max-width 1000px;
+        }
+
+        .card {
+            background-color var(--card-bg);
+            border-radius 12px;
+            padding 25px;
+            text-decoration none;
+            color var(--text-main);
+            transition transform 0.2s ease, box-shadow 0.2s ease;
+            border 1px solid #333;
+            display flex;
+            flex-direction column;
+        }
+
+        .cardhover {
+            transform translateY(-5px);
+            box-shadow 0 8px 20px rgba(0, 0, 0, 0.4);
+            border-color var(--accent);
+        }
+
+        .card-icon {
+            font-size 2rem;
+            margin-bottom 15px;
+        }
+
+        .card-title {
+            font-size 1.4rem;
+            margin 0 0 10px 0;
+            font-weight 500;
+        }
+
+        .card-desc {
+            color var(--text-muted);
+            font-size 0.95rem;
+            margin 0;
+            line-height 1.4;
+        }
+    style
+head
+body
+
+    header
+        h1Mój Home Lab 🚀h1
+        p class=subtitleCentrum dowodzenia domową siecią i usługamip
+    header
+
+    div class=grid-container
+        !-- Zmień atrybut href na adresy IP lub domeny swoich usług --
+        
+        a href=https192.168.1.1008006 class=card target=_blank
+            div class=card-icon🖥️div
+            h2 class=card-titleProxmoxh2
+            p class=card-descZarządzanie maszynami wirtualnymi i kontenerami LXC.p
+        a
+
+        a href=http192.168.1.101admin class=card target=_blank
+            div class=card-icon🛡️div
+            h2 class=card-titlePi-holeh2
+            p class=card-descOchrona sieci i blokowanie reklam na poziomie DNS.p
+        a
+
+        a href=http192.168.1.1029000 class=card target=_blank
+            div class=card-icon🐳div
+            h2 class=card-titlePortainerh2
+            p class=card-descPanel zarządzania kontenerami Docker.p
+        a
+
+        a href=http192.168.1.103 class=card target=_blank
+            div class=card-icon☁️div
+            h2 class=card-titleNextcloudh2
+            p class=card-descPrywatna chmura na pliki, zdjęcia i kalendarze.p
+        a
+
+        a href=http192.168.1.1048096 class=card target=_blank
+            div class=card-icon🎬div
+            h2 class=card-titleJellyfinh2
+            p class=card-descDomowe centrum multimedialne (filmy, seriale, muzyka).p
+        a
+
+        a href=http192.168.1.1 class=card target=_blank
+            div class=card-icon🌐div
+            h2 class=card-titleRouterh2
+            p class=card-descPanel administracyjny głównego routera sieci domowej.p
+        a
+    div
+
+body
+html
