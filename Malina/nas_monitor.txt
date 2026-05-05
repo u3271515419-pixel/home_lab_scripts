@@ -1,0 +1,87 @@
+import os
+import socket
+import time
+import requests
+
+# ==========================================
+# KONFIGURACJA SYSTEMU
+# ==========================================
+NAS_IP = "192.168.1.100"       # Wpisz tutaj adres IP swojego NAS
+NAS_PORT = 445                 # Port 445 to domyślny port dla SMB (Samba)
+CHECK_INTERVAL = 300           # Co ile sekund sprawdzać stan (300s = 5 minut)
+
+# ==========================================
+# KONFIGURACJA POWIADOMIEŃ TELEGRAM (Opcjonalne)
+# ==========================================
+USE_TELEGRAM = False           # Zmień na True, jeśli chcesz używać Telegrama
+TELEGRAM_TOKEN = "TWÓJ_TOKEN"  # Token od BotFather
+TELEGRAM_CHAT_ID = "TWÓJ_ID"   # Twój Chat ID
+
+# Zmienne do śledzenia stanu, by nie spamować powiadomieniami
+nas_was_offline = False
+
+def send_telegram_message(message):
+    """Wysyła powiadomienie na aplikację Telegram."""
+    if not USE_TELEGRAM:
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"Błąd wysyłania wiadomości Telegram: {e}")
+
+def check_ping(ip):
+    """Sprawdza, czy urządzenie odpowiada na ping."""
+    # Opcja -c 1 oznacza wysłanie 1 pakietu. Wyjście kierujemy w próżnię.
+    response = os.system(f"ping -c 1 -W 2 {ip} > /dev/null 2>&1")
+    return response == 0
+
+def check_port(ip, port):
+    """Sprawdza, czy określony port (np. dla usługi plików) jest otwarty."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(3) # Czekamy maksymalnie 3 sekundy na odpowiedź
+    result = sock.connect_ex((ip, port))
+    sock.close()
+    return result == 0
+
+# ==========================================
+# GŁÓWNA PĘTLA PROGRAMU
+# ==========================================
+print(f"Rozpoczynam monitorowanie NAS pod adresem {NAS_IP}...")
+
+try:
+    while True:
+        is_ping_ok = check_ping(NAS_IP)
+        is_port_ok = check_port(NAS_IP, NAS_PORT)
+
+        # Logika sprawdzania stanu
+        if is_ping_ok and is_port_ok:
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] OK: NAS jest online i usługa plików działa.")
+            
+            # Jeśli wcześniej NAS był offline, wyślij powiadomienie o powrocie do życia
+            if nas_was_offline:
+                msg = "✅ Twój serwer NAS znów jest dostępny i działa poprawnie!"
+                print(msg)
+                send_telegram_message(msg)
+                nas_was_offline = False
+
+        else:
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] BŁĄD: Problem z połączeniem do NAS!")
+            
+            # Zapobieganie spamowaniu - wysyła powiadomienie tylko raz, gdy NAS zniknie
+            if not nas_was_offline:
+                if not is_ping_ok:
+                    msg = f"🚨 ALARM NAS: Brak odpowiedzi na PING z adresu {NAS_IP}! Urządzenie może być wyłączone."
+                else:
+                    msg = f"⚠️ OSTRZEŻENIE NAS: NAS odpowiada na sieć, ale port {NAS_PORT} (udostępnianie plików) jest zablokowany/wyłączony."
+                
+                print(msg)
+                send_telegram_message(msg)
+                nas_was_offline = True
+
+        # Odczekaj zdefiniowany czas przed kolejnym sprawdzeniem
+        time.sleep(CHECK_INTERVAL)
+
+except KeyboardInterrupt:
+    print("\nZakończono monitorowanie.")

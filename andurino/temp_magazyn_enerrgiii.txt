@@ -1,0 +1,63 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// ==========================================
+// KONFIGURACJA
+// ==========================================
+// Pin, do którego podłączony jest kabel danych czujnika (np. D4 w NodeMCU/ESP32)
+const int ONE_WIRE_BUS = 4; 
+
+// Pin sterujący alarmem/wentylatorem/przekaźnikiem
+const int ALARM_PIN = 5;    
+
+// Maksymalna bezpieczna temperatura (np. 45°C dla LiFePO4, 60°C dla Li-ion)
+const float MAX_SAFE_TEMP = 45.0; 
+
+// Inicjalizacja magistrali 1-Wire i czujnika
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+void setup() {
+  Serial.begin(115200); // Prędkość portu szeregowego
+  
+  // Konfiguracja pinu alarmowego
+  pinMode(ALARM_PIN, OUTPUT);
+  digitalWrite(ALARM_PIN, LOW); // Stan początkowy: wyłączony
+  
+  // Uruchomienie czujnika
+  sensors.begin();
+  Serial.println("System monitorowania magazynu energii uruchomiony.");
+}
+
+void loop() {
+  // Żądanie odczytu temperatury z czujników
+  sensors.requestTemperatures(); 
+  
+  // Pobranie temperatury z pierwszego czujnika (indeks 0)
+  float tempC = sensors.getTempCByIndex(0);
+
+  // Sprawdzenie, czy odczyt jest poprawny (zabezpieczenie przed odpięciem kabla)
+  if (tempC != DEVICE_DISCONNECTED_C) {
+    Serial.print("Temperatura ogniw: ");
+    Serial.print(tempC);
+    Serial.println(" °C");
+
+    // LOGIKA BEZPIECZEŃSTWA
+    if (tempC >= MAX_SAFE_TEMP) {
+      Serial.println(">>> ALARM! KRYTYCZNA TEMPERATURA! <<<");
+      digitalWrite(ALARM_PIN, HIGH); // Załącz alarm / wentylator / stycznik
+      
+      // Tutaj możesz dodać kod wysyłający powiadomienie (np. SMS, e-mail, Blynk)
+      
+    } else {
+      digitalWrite(ALARM_PIN, LOW);  // Temperatura w normie, wyłącz alarm
+    }
+  } else {
+    Serial.println("BŁĄD: Nie można odczytać danych. Sprawdź połączenie z czujnikiem DS18B20!");
+    // Dobrą praktyką w magazynach energii jest załączenie alarmu również w przypadku utraty łączności z czujnikiem
+    // digitalWrite(ALARM_PIN, HIGH); 
+  }
+
+  // Odczekaj 2 sekundy przed kolejnym pomiarem
+  delay(2000); 
+}
