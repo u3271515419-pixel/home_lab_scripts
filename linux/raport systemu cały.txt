@@ -1,0 +1,1 @@
+ps -eo pid,user,%cpu,%mem,cgroup,args --sort=-%cpu > raport_procesow.txt
